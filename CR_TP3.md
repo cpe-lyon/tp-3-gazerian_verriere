@@ -36,7 +36,7 @@ Résultat :
 
     544 
     
-L'écart d'1 est du à la ligne "En train de lister..." qui s'écrit lors d'une commande apt. (On vérifie cela grâce au paramètre head)
+L'écart d'1 est dû à la ligne "En train de lister..." qui s'écrit lors d'une commande apt. (On vérifie cela grâce au paramètre head)
 Cette ligne doit être prise en compte alors qu'il ne faudrait pas?
 
 
@@ -49,6 +49,7 @@ Grâce à la commande :
     apt cache -stats
 
 Nombre de paquets disponibles : 87939
+
 Nombre de paquets déjà installés : 543
 
 Donc nombre de paquets disponibles au téléchargement : **87896**
@@ -115,13 +116,14 @@ Résultat :
 **Exercice 3)**
 
 Script :
-    #!/bin/bash
-    result=$(dpkg -l | grep " $1 ")
-    if [ -z "$results" ]; then
-      echo "NON INSTALLE"
-    else 
-      echo "INSTALLE"
-    fi
+
+        #!/bin/bash
+        result=$(dpkg -l | grep " $1 ")
+        if [ -z "$results" ]; then
+          echo "NON INSTALLE"
+        else 
+          echo "INSTALLE"
+        fi
 
 
 
@@ -135,7 +137,6 @@ Code :
 
 
 La commande '[' permet de comparer des chaines de caractères, des nombres et vérifie des propriétés de fichiers. Elle simplifie le code pour ne pas avoir a écrire "test".
-On affiche ce qu'elle retourne 
 
 
     
@@ -157,6 +158,163 @@ Après avoir cherché emacs dans la liste graphique des paquets, on le télécha
 
 
 
+**Exercice 7) Création de dépôt personnalisé**
+**Création d’un paquet Debian avec dpkg-deb**
+
+*1) Dans le dossier scripts créé lors du TP 2, créez un sous-dossier origine-commande où vous créerez un sous-dossier DEBIAN, ainsi que l’arborescence usr/local/bin où vous placerez le script écrit à l’exercice 2. *
+
+L'arborescence est créée grâce à la suite de commandes suivante : 
+
+        cd scripts
+        mkdir origine-commande
+        cd origine-command
+        mkdir DEBIAN
+        mkdir usr
+        cd usr
+        mkdir local
+        cd local 
+        mkdir bin
+        cd ../..
+        cd DEBIAN
+
+*2) Dans le dossierDEBIAN, créez un fichiercontrolavec les champs suivants :*
+
+La commande vim nous permet de créer un fichier et de le paramétrer, on écrit donc :
+
+        vim control
+        
+        Package: origine-commande 
+        Version: 0.1 
+        Maintainer: Gazerian_Verriere
+        Architecture: all 
+        Description: Cherche l'origine d'une commande
+        Section: utils 
+        Priority: optional 
+        
+        
+*3.Revenez dans le dossier parent de origine-commande (normalement, c’est votre $HOME) et tapez la commande suivante pour construire le paquet : dpkg-deb --build origine-commande .
+
+
+Pour retourner dans HOME, on utilise la commande :
+
+        cd ~
+        
+Puis on crée le paquet avant la commande de l'énoncé. Nous ne savons pas vraiment comment transcrire dans ce compte-rendu ce qui a été fait.
 
 
 
+**Création du dépôt personnel avec reprepro**
+*1) Dans votre dossier personnel, commencez par créer un dossier repo-cpe. Ce sera la racine de votre dépôt*
+*2) Ajoutez-y deux sous-dossiers : conf (qui contiendra la configuration du dépôt) et packages (qui contiendra nos paquets)*
+
+La création d'un dossier et de ces sous-dossiers se fait, comme toujours, grâce àaux commandes mkdir et cd, comme suit :
+
+        mkdir repo-cpe
+        cd repo-cpe
+        mkdir conf
+        mkdir packages
+        
+
+*3) Dans conf, créez le fichier distributions.*
+
+Pour suivre les consignes de l'énoncé, nous écrivons :
+
+        cd conf
+        vim distributions 
+        
+        Origin: Gazerian_Verriere_Depot
+        Label: repo-cpe
+        // Suite: stable
+        Codename: cosmic  
+        Architectures: i386 amd64 
+        Components: universe 
+        Description: Test_Depot_TP3_AdminSys
+
+
+*4) Dans le dossier repo-cpe, générez l’arborescence du dépôt.*
+
+Pour cela, on utilise la commande :
+
+        reprepro -b . export5
+        
+
+*5) Copiez le paquet origine-commande.deb créé précédemment dans le dossier packages du dépôt, puis,à la racine du dépôt, inscrivez votre paquet dans le dépôt.*
+
+On effectue d'abord ces commandes :
+
+        cp ~/scripts/origine-commande.deb ./packages
+        cp ~/scripts/origine-commande.deb
+        
+Puis :
+
+        reprepro -b . includedeb cosmic origine-commande.deb 
+
+Afin que le paquet soit placé dans notre dépot.
+
+
+
+*6) Il faut à présent indiquer à apt qu’il existe un nouveau dépôt dans lequel il peut trouver des logiciels. Pour cela, créez (avec sudo) dans le dossier /etc/apt/sources.list.d le fichier repo-cpe.list contenant :
+deb file:/home/VOTRE_NOM/repo-cpe cosmic multiverse (cette ligne reprend la configuration du dépôt, elle est à adapter au besoin)*
+
+On ouvre ce fichier dans vim pour pouvoir le configurer correctement :
+
+        sudo vim /etc/apt/sources.list.d/repo-cpe.list
+        deb file: /home/Gazerian_Verriere/repo-cpe cosmic multiverse
+
+*7) Lancez la commande sudo apt update.*
+
+Cette commande permet de prendre en compte les paquets signés. Le nôtre est configuré presque entièrement, mais nous devons le signer. C'est l'objet de la prochaine partie de l'exercice.
+
+
+
+**Signature du dépôt avec GPG**
+*GPG est la version GNU du protocole PGP (Pretty Good Privacy), qui permet d’échanger des données demanière sécurisée. Ce système repose sur la notion de clés de chiffrement asymétriques (une clép ublique et une cléprivée)*
+
+*1) Commencez par créer une nouvelle paire de clés*
+
+Pour cela on utilise la commande:
+
+        gpg --gen-key
+        Real name: Gazerian_Verriere
+        Email address: nicolas.verriere@cpe.fr
+        o
+        passphrase : EZ
+        
+*2) Ajoutez à la configuration du dépôt (fichier distributions) la ligne suivante :*
+
+        SignWith: yes
+        
+*3) Ajoutez la clé à votre dépôt :*
+
+        reprepro --ask-passphrase -b . export
+
+Nous comprenons cette commaned comme la nécéssité de demander la passphrase du dépot aux utilisateurs.
+
+*4) Ajoutez votre clé publique à votre dépôt avec la commande :*
+
+        gpg --export -a nicolas.verriere@cpe.fr > public.key
+        
+*5) Enfin, ajoutez cette clé à la liste des clés fiables connues de apt:* 
+
+        sudo apt-key add public.key
+
+Ces deux dernières commandes permettent d'identifier la clé du dépôt comme une clé valide. (On ajoute la nouvelle à la banque des clés connues par apt dans la dernière commande.)
+
+
+
+**Exercice 8) Installation d’un logiciel à partir du code source**
+*Lorsqu’un logiciel n’est disponible ni dans les dépôts officiels, ni dans un PPA, ou encore parce qu’on souhaite n’installer qu’une partie de ses fonctionnalités, on peut se tourner vers la compilation du code source. Malheureusement, cette installation ”à la main” fait qu’on ne propose pas des bénéfices de la gestion de paquets apportée par dpkg ou apt. Heureusement, il est possible de transformer un logiciel installé ”à la main” en un paquet, et de le gérer ensuite avec apt ; c’est ce que permet par exemple checkinstall.*
+
+
+*1) Commencez par cloner le dépôt git suivant :*
+
+        git clone https://github.com/jubalh/nudoku
+        
+Ceci permet de récupérer en local le code source du logiciel nudoku.
+On crée le clône du contenu de l'adresse http pour avoir une copie en dur sur l'ordinateur plutôt que sur le réseau internet.
+
+
+
+Comme je vous l'ai expliqué dans un mail le vendredi 6, nous avons eu des problèmes d'interface pour terminer le TP. (Nous avons lié 3 captures d'écran à ce .md. Ce sont les mêmes que vous avez reçues par mail.) 
+
+Nous n'avons pas pu avancer plus dans le TP.
